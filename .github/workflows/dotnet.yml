@@ -25,4 +25,4 @@ jobs:
     - name: Build
       run: dotnet build  ./api/api.csproj --no-restore
     - name: Test
-      run: dotnet test ./team5poolingapp.sln --no-build --verbosity normal
+      run: dotnet test ./team5poolingapp.sln  --verbosity normal
