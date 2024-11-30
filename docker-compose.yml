@@ -1,0 +1,132 @@
+version: '3.4'
+
+
+services:
+  api:
+    image: ${DOCKER_REGISTRY-}api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+     - 7239:8081
+    depends_on:
+      - dbpg
+      - redisapp
+      - osrm-server
+      - rabbitmq
+
+  json.service:
+    image: ${DOCKER_REGISTRY-}json.service
+    build:
+      context: .
+      dockerfile: json.service/Dockerfile
+    ports:
+     - 7240:8082
+    depends_on:
+      - rabbitmq
+      - mongo
+
+  geoservice:
+    image: ${DOCKER_REGISTRY-}geoservice
+    build:
+      context: .
+      dockerfile: GeoService/Dockerfile
+    ports:
+     - 7245:8080
+    depends_on:
+      - osrm-server
+
+
+  dbpg:
+    # We need to do this to get the PostgreSQL container to work on Windows
+    container_name: postgres_container_l
+    image: postgres
+    #build:
+    #  context: .
+      #dockerfile: AspCoreRazorPostgre/Dockerfile.postgresql-container
+    environment:
+      PGDATA: '/var/lib/postgresql/data'
+      PGUSER: 'pgUser'
+      USER: 'pgUser'
+      POSTGRES_USER: 'pgUser'
+      POSTGRES_PASSWORD: 'pgUser'
+    ports:
+      - 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  osrm-server:    
+    image: mstisf/osrm_rf_central # image: osrm/osrm-backend
+    # build:
+    #   context: .
+      # dockerfile: ./osrm/Dockerfile.osrm
+    ports:
+      - 5000:5000
+    command: bash -c "osrm-routed --algorithm mld /dataosrm/osrm/central-fed-district-latest.osrm"
+  
+  redisapp:
+    image: "redis/redis-stack:latest"
+    ports:
+      - 6379:6379
+ 
+# LOGGER
+  seq:
+    image: datalust/seq:2021.3.6651
+    container_name: gmsseq
+    ports:
+      - "5342:80"
+    environment:
+      ACCEPT_EULA: "Y"
+    restart: unless-stopped
+    volumes:
+      - seq-data:/data
+  
+  pgadmin:
+    container_name: pgadmin_container_l
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+       - pgadmin:/var/lib/pgadmin
+
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    ports:
+        - "27017:27017"
+    volumes:
+        - mongodb-data:/data/db
+
+networks:                                
+  default:                               
+    driver: bridge                       
+    driver_opts:                         
+      com.docker.network.driver.mtu: 1450
+volumes:
+  pgdata:
+    driver: local
+  pgadmin:
+  seq-data:  
+  rabbitmq_data: 
+  mongodb-data:
+    driver: local   
